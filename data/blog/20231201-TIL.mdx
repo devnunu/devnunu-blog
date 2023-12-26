@@ -261,6 +261,8 @@ fun main() = runBlocking {
 - 이 함수는 let, run, use 또는 runBlocking 처럼 람다식이 반환하는 것이며 무엇이든 반환한다.
 - coroutineScope는는 중단 함수 내에 스코프가 필요할때 일반적으로 사용하는 함수이다.
 
+---
+
 # 231225
 
 ## 코틀린 코루틴 7장 - 코루틴 컨텍스트
@@ -296,3 +298,155 @@ fun main() = runBlocking {
 
 - Job의 첫번째 중요한 이점은 코루틴이 완료될 때까지 기다리는데 사용될수 있음. 이를 위해 join 메서드를 사용함
 - join은 지정한 잡이 completed나 cancelled와 같은 마지막 상태에 도달할 때까지 기다리는 중단함수임
+
+---
+
+# 231226
+
+## 코틀린 코루틴 9장 - 취소
+
+- Job 인터페이스는 기본적으로 cancel 메서드를 가지고 있음. 취소에 대한 특징은 아래와 같음
+    - 호출한 코루틴은 첫번째 중단점 에서 Job을 끝냄
+    - Job이 자식을 가지고 있다면 그들 또한 취소됨. 하지만 부모는 영향을 받지 않음
+    - Job이 취소되면 최소된 Job은 새로운 코루틴의 부모로 사용될 수 없음
+- cancel 호출 후에는 join을 호출하여 코루틴이 취소를 마칠때까지 중단 시켜줘야함. 그렇지 않으면 경쟁상태가 발생하여 예상과 다른 결과값이 나옴
+- kotlin coroutine 라이브러리에는 call과 join을 함께 호출할수 있는 간단한 방법으로 이름에서 기능을 유추할 수 있는 cancelAndJoin 이라는 확장함수를 제공함
+
+```kotlin
+public suspend fun Job.cancelAndJoin() {
+    cancel()
+    return join()
+}
+```
+
+## 코틀린 코루틴 10장 - 예외 처리
+
+- 코루틴 빌더는 예외 발생시 부모도 종료시키며 취소된 부모는 자식들 모두를 취소시킴
+
+### 코루틴 종료 멈추기
+- 코루틴 종료를 멈추는 가장 중요한 방법은 supervisorJob을 사용하는 것. supervisorJob을 사용하면 자식에서 발생한 모든 예외를 무시할 수 있음
+
+```kotlin
+fun main(): runBlocking {
+    val scope = CoroutineScope(supervisorJob())
+    scope.launch {
+        delay(1000)
+        throw Error("Some error")
+    }
+
+    scope.launch {
+        delay(2000)
+        println("Will be printed")
+    }
+
+    delay(3000)
+}
+```
+
+## 코틀린 코루틴 11장 - 코루틴 스코프 함수
+- 여러개의 엔드 포인트에서 데이터를 동시에 얻어야하는 중단 함수는 어떻게 만들수 있을까
+- 코루틴 이전에 사용한 방법은 아래와 같음
+
+```kotlin
+susepnd fun getUserProfile(): UserProfileData {
+    val user = getUserData()                // (1초후)
+    val notifications = getNotifications()  // (1초후)
+
+    return UserProfileData(
+        user = user,
+        notifications = notifications,
+    )
+}
+```
+
+- 위의 함수는 작업의 동시에 진행되지 않음. 두개의 중단함수를 동시에 실행하려면 각각 asycn로 래핑해야함. 
+- 하지만 async는 스코프를 필요로하며 GlobalScope를 사용하는건 바람직하지 않음. GlobalScope는 그저 EmptyCoroutineContext를 가진 스코프임.
+- 따라서 안전한 사용을 위해 coroutineScope를 사용해야함
+- withContext를 사용할 수도 있는데 withContext는 코루틴 컨텍스트를 바꿀 수 있는 coroutineScope임
+- withTimeout은 타임아웃 기능이 있는 coroutineScope임
+
+
+## 코틀린 코루틴 16장 - 채널과 플로우
+
+- 코루틴끼리의 통신을 위한 기본적인 방법으로 채널 API가 추가됨
+- 채널은 송신자와 수신자의 수에 제한이 없으며, 채널을 통해 전송된 모든 값은 단 한 번만 받을수 있음
+- 채널은 두 개의 서로 다른 인터페이스를 구현한 하나의 인터페이스임
+    - SendChannel은 원소를 보내거나 채널을 닫는 용도로 사용됨
+    - ReceiveChannel은 원소를 받을 때 사용됨
+- 생성자는 원소를 보내고, 소비자는 원소를 받음
+
+```kotlin
+suspend fun main(): Unit = coroutineScope {
+    val channel = Channel<Int>()
+    launch {
+        repeat(5) { index ->
+            delay(1000)
+            println("Producing next one")
+            channel.send(index * 2)
+        }
+    }
+
+    launch {
+        repeat(5) {
+            val received = channel.receive()
+            println(received)
+        }
+    }
+}
+```
+
+- 간단한 예이지만 위의 방식은 불완전함. 왜냐하면 수신자는 송신자가 얼마나 많은 원소를 보내는지 알아야하므로.
+- 따라서 송신자가 보내는 만큼 수신자가 기다리는 방식을 선호하며, 이를 위해 for루프나 consumeEach 함수를 사용함
+
+```kotlin
+suspend fun main(): Unit = coroutineScope {
+    val channel = Channel<Int>()
+    launch {
+        repeat(5) { index ->
+            delay(1000)
+            println("Producing next one")
+            channel.send(index * 2)
+        }
+        channel.close()
+    }
+    launch {
+        for (element in channel) {
+            println(element)
+        }
+        // 또는
+        // channel.consumeEach { element -> 
+        //  println(element)
+        // }
+    }
+}
+```
+
+- 위와 같이 원소를 보내는 방식의 문제점은 채널을 닫는걸 깜빡할수 있다는 것임
+- 따라서 ReceiveChannel을 반환하는 빌더인 produce 함수를 사용하는것이 편리함
+- produce 함수는 빌더로 시작된 코루틴이 어떻게 종료되든 상관없이 채널을 닫음. 따라서 close를 반드시 호출함
+
+```kotlin
+susepnd fun main(): Unit = coroutineScope {
+    val channel = produce {
+        repeat(5) { index ->
+            println("Producing next one")
+            delay (1000)
+            send(index * 2)
+        }
+    }
+
+    for (element in channel) {
+        println(element)
+    }
+}
+```
+
+### 채널 타입
+- 무제한 : 제한없는 용량 버퍼를 가진 채널, Channel.UNLIMITED 로 설정된 채널로 send가 중단되지 않음
+    - val channel = produce(capacity = Channel.UNLIMITED)
+- 버퍼 : 특정 용량 크기를 가진 채널, Channel.BUFFERED 로 설정된 채널
+    - val channel = produce(capacity = Channel.BUFFERED)
+- 랑데뷰 : 용량이 0인 채널, Channel.RENDEZVOUS 로 설정된 채널. 송신자와 수신자가 만날때만 원소를 교환함
+    - val channel = produce(capacity = Channel.RENDEZVOUS)
+- 융합 : 버퍼의 크기가 1인 채널, Channel.CONFLATED 로 설정된 채널. 새로운 원소가 이전의 원소를 대체함
+    - val channel = produce(capacity = Channel.CONFLATED)
