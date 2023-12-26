@@ -1,0 +1,166 @@
+---
+title: 파이썬 langchain 기본 기능 사용해보기
+date: '2023-12-14'
+tags: ['python', 'langchain', 'ai']
+draft: false
+summary: 파이썬 langchain 기본 기능 사용해보기
+---
+
+## langchain 이란?
+LLM(Large Language Model)을 좀 더 쉽게 사용할수 있도록 하는 패키지 입니다.
+langchain 패키지를 통해 많은 chat model을 사용할수 있게됩니다. 따라서 각 model의 특정 API를 알아야할 필요도, 각 model의 파이썬 패키지를 다운받을 필요도 없습니다.
+
+## 간단한 질문해보기
+
+```python
+from langchain.chat_models import ChatOpenAI
+
+chat = ChatOpenAI()
+
+chat.predict("How many Planets are there?")
+
+# OUTPUT : 'There are eight planets in our solar system: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune.'
+```
+
+첫번째 대화 입니다. chat이라는 변수에 ChatModel을 생성해줍니다. 
+하고싶은 질문을 string으로 작성하여 chat의 predict 함수에 넣어 줍니다. 코드를 실행시키면 정상적으로 Output이 출력됨을 확인할 수 있습니다.
+
+langchain을 사용하기 때문에 만약 사용해야하는 모델이 변경된다면 단순히 chat에 생성되어지는 모델만 변경하면 됩니다.
+ex) chat = ChatAnthropic()으로 변경만 하면 다른 모델 사용 가능
+
+## 간단한 대화해보기
+```python
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
+
+chat = ChatOpenAI(temperature = 0.1)
+
+messages = [
+    SystemMessage(content = "Yout are a geography expert. And you only reply in Intalian"),
+    AIMessage(content = "Ciao. mi chiamo Paolo!"),
+    HumanMessage(content = "What is the distance between Maxico and Thailand. Also, what is your name")
+]
+
+chat.predict_messages(messages)
+
+# OUTPUT : content='Ciao! Il mio nome è Paolo. La distanza tra il Messico e la Thailandia è di circa 16.000 chilometri.')
+```
+이번에는 단순한 질문이 아니라 대화를 넣어봅시다.
+위 코드는 HumanMessage, AIMessage, SystemMessage를 사용해 멕시코와 태국 사이의 거리를 물어보는 대화입니다.
+SystemMessage를 통해서는 일종의 설정들을 AI로 넘겨줄수 있습니다. 
+AIMessage는 AI의 대답중 일부를 설정할수 있으며, 마지막으로 HumanMessage를 통해서 원하는 질문들을 할수 있습니다.
+결과적으로 이런 메세지들을 리스트 형으로 감싸서 predict_messages라는 함수를 사용하여 한번에 넘길수 있게됩니다.
+
+## template을 사용하여 좀 더 나은 코드 만들기
+
+```python
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate, ChatPromptTemplate
+
+chat = ChatOpenAI(temperature=0.1)
+
+template = PromptTemplate.from_template(
+    "What is the distance between {country_a} and {country_b}."
+)
+
+
+prompt = template.format(country_a="Mexico", country_b="Thailand")
+chat.predict(prompt)
+```
+
+PromptTemplate을 사용하여 string 형식의 tempalte을 생성할 수 있습니다. 
+PromptTemplate.from_template 메서드에 템플릿으로 사용될 String을 넣어놓고 포매팅이 필요한 값들을 중괄호로 감쌉니다.
+해당 템플릿은 template 변수에 저장한뒤 prompt 생성하는 과정에서 필요한 인자들을 format 함수의 인자로 전달합니다.
+이를 통해 템플릿을 사용하여 간단한 프롬프트가 생성되었습니다.
+
+```python
+template = ChatPromptTemplate.from_messages([
+    ("system", "You are a geography expert. And you only reply in {language}"),
+    ("ai", "Ciao, mi chiamo {name}!"),
+    ("human","What is the distance between {country_a} and {country_b}. Also, what is your name?")
+])
+
+prompt = template.format_messages(
+    language="Greek",
+    name="Socrates",
+    country_a="Mexico", 
+    country_b="Thailand"
+)
+
+chat.predict_messages(prompt)
+```
+
+이번에는 ChatPromptTemplate 입니다.
+ChatPromptTemplate.from_messages내에 튜플과 리스트형으로 감싸진 템플릿을 넣어 template 변수를 생성합니다.
+template 변수의 format_messages 함수를 통해 원하는 인자를 넣으면 좀 더 효율적으로 원하는 프롬프트가 생성됩니다.
+
+## OutputParser
+
+이번에는 OutputParser에 대해서 알아봅시다. OutputParser는 모델에서 나온 응답값의 형태를 변형시키고 싶을떄 사용되며, 이를 변형하여 데이터베이스에 저장하거나 딕셔너리, 튜플 바꿔서 사용하고 싶은 곳에서 쓸수있습니다.
+
+```python
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema import BaseOutputParser
+
+chat = ChatOpenAI(temperature=0.1)
+
+class CommaOutputParser(BaseOutputParser):
+    def parse(self, text):
+        items = text.strip().split(",")
+        return list(map(str.strip, items))
+
+p = CommaOutputParser()
+
+p.parse("Hello, how, are, you")
+
+# ['Hello', 'how', 'are', 'you']
+```
+
+우선 BaseOutputParser를 상속받는 CommaOutputParser를 만들어봅시다. CommaOutputParser는 인자로 들어온 text의 양옆 공백을 없에고 쉼표를 기준으로 자른후 다시 공백을 자릅니다.
+
+```python
+# ... 생략
+template = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a list generating machine. Everything you are asked will be answered with a comma separated list of max {max_items} in lowercase.Do NOT reply with anything else.",
+        ),
+        ("human", "{question}"),
+    ]
+)
+
+prompt = template.format_messages(
+    max_items = 5,
+    question = "What are the pokemons?"
+)
+
+result = chat.prodict_messages(prompt)
+
+p = CommaOutputParser()
+
+p.parse(result.content)
+
+# ['pikachu', 'charizard', 'bulbasaur', 'squirtle', 'jigglypuff']
+```
+
+이어서 하단에 다음과 같은 템플릿을 작성해봅시다. system 설정을 통해 미리 주문한 대답은 question에 대한 대답을 max_items 만큼의 항목 만큼 대답하며 각 항목을 쉼표로 구분되어집니다.포켓몬을 나열하라는 질문에 5마리의 포켓몬을 대답했고, 결과물을 CommaOutputParser를 통해 리스트형으로 변환했습니다.
+
+
+## Langchain expression language
+
+위에서 작성한 코드를 Langchain expression language을 사용하여 좀 더 쉽게 사용하는 방법에 대해서 알아봅시다. langchain에서는 | 연산자를 이용하여 템플릿과 LLM, Outparser를 쉽게 연결하여 사용할 수 있습니다. 이것이 langchain이 강력한 또다른 이유이며 이름에 chain이 들어가는 이유입니다.
+
+```python
+# ... 생략
+chain = template | chat | CommaOutputParser()
+
+chain.invoke({"max_items": 5, "question": "What are the pokemons?"})
+
+# ['pikachu', 'charizard', 'bulbasaur', 'squirtle', 'jigglypuff']
+```
+
+앞선 예제와 동일한 결과값을 받을수 있는 핵심 코드를 한 줄로 사용할 수 있습니다.
+'chain = template | chat | CommaOutputParser()'
+invoke 실행시 체인의 첫번째 값에 전달될 인자들을 넣어주고 결과값은 순차적으로 다음 체인으로 전달됩니다. 결과적으로 우리는 이를 통해 간단하게 코드를 작성하고 동일한 결과값을 받을수 있습니다.

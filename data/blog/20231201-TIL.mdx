@@ -1,0 +1,298 @@
+---
+title: 2023년 12월의 TIL
+date: '2023-12-01'
+tags: ['TIL']
+draft: false
+summary: 2023년 12월의 TIL
+---
+
+# 231218
+## 코틀린 코루틴 1장
+
+- 코틀린의 개념은 1963년 처음 제시됨
+- 멀티 플랫폼에서 작동시킬수 있으므로 모든 플랫폼을 넘나들며 사용이 가능
+- 코루틴을 도입할때는 코드를 광범위하게 뜯어고칠 필요가 없음. 조금만 손봐도 코루틴이 제공하는 대부분의 기능 사용 가능
+
+**안드로이드에서의 애플리케이션 로직 구현 예제**
+```
+하나 또는 다양한 소스로 부터 데이터를 얻어온다
+데이터를 처리한다
+가공된 데이터로 무엇인가를 한다.
+```
+
+**코루틴이 없을 경우 위의 로직 구현**
+1. 스레드를 전환하여 사용
+    * 스레드가 실행되었을때 멈출 수 있는 방법이 없어서 메모리 누수로 이어질수 있음
+    * 스레드 비용이 높음
+    * 스레드 자주 전환시 복잡도가 높아지고 관리가 어려움
+    * 코드가 쓸데없이 길어지고 이해하기 어려워짐
+2. 콜백
+    * 중간에 작업을 취소할 수 없음
+    * 작업의 순서를 다루기 어려움
+    * 콜백 지옥
+3. RxJava & 리액티브 스트림
+    * 메모리 누수가 없고 취소가 가능하며 스레드를 적절하게 사용할 수 있음
+    * 구현하기 아주 복잡함
+    * 내부 API 함수들을 배워야함
+    * 취소하는 작업을 명시적으로 표시해야함
+    * 객체를 반환하는 함수를 Observable이나 Single 클래스로 래핑 해야함
+
+**코루틴**
+- 핵심 개념 : 특정 지점에서 멈추고 이후에 재개할 수 있음
+- 동시성을 쉽게 구현할 수 있고, 동시성 테스트가 가능하며, 코루틴을 취소할 수도 있음.
+- 스레드를 사용하는 비용이 작음.
+- 문법이 간단함.
+
+---
+
+# 231219
+## 코틀린 코루틴 2장 - 시퀀스 빌더
+
+- 코틀린에서는 제너레이터 대신 시퀀스를 생성할때 사용하는 시퀀스 빌더를 제공함
+- 코틀린의 시퀀스는 List나 Set과 같은 컬렉션과 비슷한 개념이지만, 필요할 때 마다 값을 하나씩 계산하는 지연 처리를 함.
+
+시퀀스의 특징
+- 요구되는 연산을 최소한으로 수행
+- 무한정이 될 수 있음
+- 메모리 사용이 효율적임
+
+## 코틀린 코루틴 3장 - 중단은 어떻게 작동할까?
+
+코루틴을 중단한다는 것은 실행을 중간에 멈추는 것을 의미한다. 코루틴은 중단되었을때 Continuation 객체를 반환한다. 이 객체는 게임을 저장하는 것과 비슷하다. Continuation을 이용하면 멈췄던 곳에서 다시 코루틴을 실행할 수 있다.
+이와 달리 스레드는 저장이 불가능하고 멈추는 것만 가능하다. 이러한 점에서 코루틴이 훨씬 강력하다.
+
+### 재개
+
+- 두 지점 사이를 중단하려면 suspendCoroutine 함수를 사용함
+- suspendCoroutine의 람다 표현식 인자로 Continuation 객체가 전달되고 이를 사용해 코루틴을 재개할 수 있음
+
+```kotlin
+suspend fun main() {
+    println("Before")
+
+    suspendCoroutine<Unit> { continuation: Countinuation<Unit> ->
+        coutinuation.resume(Unit)
+    }
+
+    println("After")
+}
+```
+
+### 값으로 재개하기
+
+```kotlin
+suspend fun main() {
+    val i: Int = suspendCoroutine<Int> { cont ->
+        cont.resume(42)
+    }
+    println(i) // 42
+
+    val str: Int = suspendCoroutine<String> { cont ->
+        cont.resume("Some text")
+    }
+    println(str) // Some text
+}
+```
+
+- suspendCoroutine을 호출할 때 Continuation 객체로 반환될 값의 타입을 지정할 수 있음
+- 생각해보면 코루틴에서 값으로 재개하는것은 자연스러움. 예를 들면 API 네트워크 응답을 기다리는 것 처럼 특정 값을 기다리려고 중단되는 상황이 발생. 데이터가 도착하면 스레드는 코루틴이 중단된 지점에서 재개됨
+
+ ```kotlin
+suspend fun requestUser(): User {
+    return suspendCoroutine<User> { cont -> 
+        requestUser { user ->
+            cont.resume(user)
+        }
+    }
+}
+
+suspend fun main {
+    println("Before")
+    val user = requestUser()
+    println(user)
+    println("After")
+ }
+ ```
+
+ - 중단 함수는 Retrofit이나 Room 같은 라이브러리에 이미 지원되고있으므로 중단 함수내에서 콜백 함수를 사용하는 일은 거의 없음
+ 
+### 예외로 재개하기
+
+- API 가 데이터를 넘겨주는 대신 문제가 발생하거나 에러로 응답이 오면 데이터를 반환할 수 없으므로 코루틴이 중단된 곳에 예외를 발생시켜야함
+- 예외로 재개하는 방법이 필요할 때가 바로 이런 경우임
+- resumeWithException이 호출되면 중단된 지점에서 인자로 넣어준 예외를 던진다
+
+```kotlin
+class MyException: Throwable("Just an exception")
+
+suspend fun main() {
+    try {
+        suspendCoroutine<Unit> { cont ->
+            cont.resumeWithException(MyException())
+        }
+    } catch (e: MyException) {
+        println("Caught!")
+    }
+}
+```
+
+---
+
+# 231221
+
+## 코틀린 코루틴 6장 - 코루틴 빌더
+
+모든 중단 함수는 또 다른 중단 함수에 의해 호출 되어야함. 중단 함수를 연속으로 호출하면 시작되는 지점이 반드시 있음. **코루틴 빌더**가 그 역할을 함. kotlin의 코루틴 라이브러리는 다음의 3가지 빌더를 제공하고 각 코루틴 빌더는 서로 다른 쓰임새가 있음.
+
+- launch
+- runBlocking
+- async
+
+### launch 빌더
+
+- launch가 작동하는 방식은 thread 함수를 호출하여 새로운 스레드를 시작하는 것과 비슷함
+- launch 함수는 CoroutineScope 인터페이스의 확장 함수임.
+- 아래는 간단한 예제
+
+```kotlin
+fun main() {
+    GlobalScope.launch {
+        delay(1000L)
+        println("World!")
+    }
+    GlobalScope.launch {
+        delay(1000L)
+        println("World!")
+    }
+    println("Hello,")
+    Thread.sleep(2000L)
+    // Hello,
+    // (1초 후)
+    // World!
+    // World!
+}
+```
+
+### runBlocking 빌더
+
+- 코루틴이 스레드를 블로킹하지 않고 작업을 중단시키기만 하는것이 일반적인 법칙이지만 블로킹이 필요한 경우도 있음.
+- 메인 함수의 경우 프로그램을 너무 빨리끝내지 않기 위해 스레드를 블로킹 해야하는데, 이럴때 runBlocking을 사용함
+- 코루틴이 중단되었을경우 runBlocking 빌더는 중단 메인 함수와 마찬가지로 시작한 스레드를 중단시킴, 따라서 runBlocking 내부에서 delay(1000L)을 호출하면 Thread.sleep(1000L)과 비슷하게 동작함
+- 사용되는 예는 2가지임
+    + 프로그램이 끝나는걸 방지하기 위해 스레드를 블로킹 할 필요가 있는 메인함수
+    + 같은 이유로 스레드를 블로킹 할 필요가 있는 유닛 테스트
+
+```kotlin
+fun main() {
+    runBlocking {
+        delay(1000L)
+        println("World!")
+    }
+    runBlocking {
+        delay(1000L)
+        println("World!")
+    }
+    println("Hello,")
+}
+// (1초후)
+// World
+// (1초후)
+// World
+// (1초후)
+// Hello
+```
+
+- 초기에는 runBlocking 이 중요한 함수로 사용되었지만 메인함수는 suspend를 붙여서 중단함수로 만드는 방법을 주로 사용하고, 유닛테스트에서는 가상 시간으로 실행시키는 runTest가 사용됨
+
+### Async 빌더
+
+- aysnc 코루틴 빌더는 luanch와 비슷하지만 값을 생성하도록 설계되어있음, `Deffered<T>` 타입을 리턴함
+- async 빌더는 호출되자마자 코루틴을 즉시 시작함. 반환된 Deffered 값이 생성되면 해당값을 내부에 저장하기 때문에 await 값이 반환되는 즉시 값을 사용가능, 하지만 값이 생성 되기전에 await를 호출하면 값이 나올때까지 기다림
+
+### 구조화된 동시성
+
+```
+fun main() = runBlocking {
+    GlobalScope.launch {
+        delay(1000L)
+        println("World!")
+    }
+    GlobalScope.launch {
+        delay(1000L)
+        println("World!")
+    }
+    println("Hello")
+    // delay(3000)
+}
+// Hello,
+```
+
+사실 luanch와 async는  CoroutineScope의 확장 함수이며 runBlocking의 람다 블록의 리시버 타입은 CoroutineScope이다. 따라서 아래와 같이 변경이 가능하다
+
+```
+fun main() = runBlocking {
+    this.launch { // launch로 호출한 것과 같습니다.
+        delay(1000L)
+        println("World")
+    }
+    launch { // this.launch로 호출한 것과 같습니다.
+        delay(2000L)
+        println("World")
+    }
+    println("Hello")
+}
+// Hello,
+// (1초후)
+// World!
+// (1초후)
+// World!
+```
+
+- 부모는 자식들을 위한 스코프를 제공하고 자식들을 해당 스코프 내에서 호출한다. 이를 통해 구조화된 동시성이라는 관계가 성립한다.
+- 부모-자식 관계의 가장 중요한 특징은 다음과 같다
+    + 자식은 부모로 부터 컨텍스트를 상속받음
+    + 부모는 모든 자식이 **작업을 마칠때까지 기다림**
+    + 부모 코루틴이 취소되면 자식 코루틴도 취소됨
+    + 자식 코루틴에서 에러가 발생하면 부모 코루틴 또한 에러로 소멸됨
+
+### coroutineScope 사용하기
+
+- coroutineScope는 람다 표현식이 필요로 하는 스코프를 만들어 주는 중단함수임
+- 이 함수는 let, run, use 또는 runBlocking 처럼 람다식이 반환하는 것이며 무엇이든 반환한다.
+- coroutineScope는는 중단 함수 내에 스코프가 필요할때 일반적으로 사용하는 함수이다.
+
+# 231225
+
+## 코틀린 코루틴 7장 - 코루틴 컨텍스트
+
+- CoroutineContext는 원소나 원소들의 집합을 나타내는 인터페이스임.
+- Job, CoroutineName, CoroutineDispatcher와 같은 Element 객체들이 인덱싱된 집합이라는 점에서 맵이나 셋과 같은 컬렉션 개념과 비슷함
+- 컨텍스트에서 모든 원소는 식별할 수 있는 유일한 key를 가지고 있음. 이 key를 가지고 get을 이용해 유일한 키를 가진 원소를 찾을수 있음.
+- 코루틴 컨텍스트의 유용한 기능은, 두개의 코루틴 컨텍스트를 합쳐 하나의 컨텍스트로 만들수 있다는 것. 다른 키를 가진 두 원소를 더하면 두키를 모두 가짐
+- 또한 코루틴 컨텍스트는 컬렉션이므로 빈 컨텍스트 또한 만들 수 있음. 빈 컨텐텍스트는 원소가 없으므로 다른 컨텍스트에 더해도 아무런 변화가 없음.]
+- minusKey 함수에 키를 넣는 방식으로 원소를 컨텍스트에서 제거할 수 있음
+- 컨텍스트의 각 원소를 조작해야하는 경우 다른 컬렉션의 fold와 유사항 fold 메서드를 사용할수 있음
+
+### 코루틴 컨텍스트와 빌더
+- 코루틴 컨텍스트는 코루틴의 데이터를 저장하고 전달하는 방법임. 부모-자식 관계의 영향중 하나로 **부모는 기본적으로 컨텍스트를 자식에게 전달**함
+- 모든 자식은 빌더의 인자에서 정의된 특정 컨텍스트를 가질 수 있음. 이 경우 인자로 전달된 컨텍스트는 부모로 부터 상속받은 컨텍스트를 대체함
+- 코루틴 컨텍스트를 계산하는 공식은 다음과 같음 `defaultContext + parentContext + childContext`
+
+
+## 코틀린 코루틴 8장 - 잡과 자식 코루틴 기다리기
+
+### Job 이란 무엇인가?
+- Job은 수명을 가지고 있으며 취소 가능함.
+- New, Active, Completing, Completed, Cancelling, Cancelled 의 상태로 구분되어지고 상태는 toString으로 확인이 가능
+- boolean 상태값은 isActive, isCompleted, isCancelled가 있음
+
+### 코루틴 빌더는 부모의 잡을 기초로 자신들의 잡을 생성한다.
+
+- launch의 명시적 반환 타입이 Job 이라는 사실을 통해 확인할 수 있음
+- async 함수에 의해 반환되는 타입은 `Deferred<T>` 이며 이 또한 Job 인터페이스를 구현하고 있으므로 똑같은 방법으로 사용가능
+- Job은 코루틴이 상속하지 않는 유일한 코루틴 컨텍스트 이며 이는 코루틴에서 아주 중요한 법칙임
+
+### 자식들 기다리기
+
+- Job의 첫번째 중요한 이점은 코루틴이 완료될 때까지 기다리는데 사용될수 있음. 이를 위해 join 메서드를 사용함
+- join은 지정한 잡이 completed나 cancelled와 같은 마지막 상태에 도달할 때까지 기다리는 중단함수임

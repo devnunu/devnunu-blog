@@ -1,0 +1,49 @@
+---
+title: 파이썬 requirements.txt 사용하기
+date: '2023-12-12'
+tags: ['python', 'tip']
+draft: false
+summary: 파이썬 requirements.txt를 통해 쉽게 패키지 관리하기
+---
+
+## requirements.txt 란?
+
+requirements.txt 파일은 파이썬 프로젝트에서 사용되는 패키지와 그 버전 정보를 포함하는 텍스트 파일입니다. 이 파일은 주로 pip를 사용하여 프로젝트에 필요한 의존성 패키지를 설치하는 데 사용됩니다.
+
+## requirements.txt 파일의 구조
+파일은 각 줄에 하나의 패키지를 나타내며, 다음과 같은 형식을 따릅니다.
+```
+package-name==version
+```
+
+- package-name: 설치하려는 패키지의 이름을 나타냅니다.
+- version: 설치하려는 패키지의 특정 버전을 지정합니다. 이 부분은 생략될 수 있으며, 생략되면 가장 최신 버전이 설치됩니다.
+예를 들어, requests 패키지의 특정 버전을 설치하려면 다음과 같이 작성할 수 있습니다:
+
+```
+requests==2.26.0
+```
+
+## 현재 프로젝트에서 설치된 패키지 목록(requirements.txt) 생성
+
+가상 환경이나 현재 python에서 pip로 설치된 패키지 목록을 기록해둔 requirements.txt 파일을 만들기 위해서는 아래와 같은 명령어를 입력해줍니다.
+```shell
+pip freeze > requirements.txt
+```
+
+## requirements.txt 내부의 패키지를 모두 설치
+
+반대로 가상환경이나 현재 python에 일괄적으로 필요한 패키지를 설치하기 위해서는, 패키지 목록을 담고있는 requirements.txt 파일이 있는 디렉토리에서 아래의 명령어를 입력합니다.
+
+```shell
+pip install -r requirements.txt
+```
+
+## 주의사항
+- requirements.txt는 보통 프로젝트 루트 디렉토리에 위치하며, 프로젝트에 필요한 패키지 및 버전을 관리하는 중요한 파일 중 하나입니다.
+- 버전을 명시하는 것은 생략할 수 있습니다. 생략된 경우에는 해당 패키지의 최신 버전이 설치됩니다.
+- 보통 프로젝트의 가상 환경에서 사용하는 패키지 목록을 추적하는 데 사용됩니다.
+- 파일 이름을 requirements.txt로 설정하는 것은 일반적인 관례일 뿐이며, 특별한 제약이나 규칙은 없습니다. requirements.txt는 표준적으로 사용되는 이름이기 때문에 대부분의 프로젝트에서 이를 따르는 것이 좋습니다. 이로 인해 다른 개발자들이 프로젝트를 이해하고 해당 파일을 쉽게 찾을 수 있습니다.
+
+
+

@@ -1,0 +1,44 @@
+---
+title: 파이썬 dotenv로 환경변수 불러오기
+date: '2023-12-13'
+tags: ['python', 'tip']
+draft: false
+summary: 파이썬 dotenv로 환경변수 불러오기
+---
+
+## dotenv란
+
+python-dotenv는 파이썬 애플리케이션에서 환경 변수를 관리하기 위한 도구입니다. 주로 .env 파일에서 환경 변수를 로드하고 응용 프로그램에서 사용합니다. 아래에서 python-dotenv의 주요 특징과 사용 방법에 대해 설명하겠습니다.
+
+### 설치
+
+```shell
+pip install python-dotenv
+```
+
+위 명령어를 사용하여 python-dotenv 패키지를 설치합니다.
+
+### .env 파일 작성
+```
+DATABASE_URL=postgresql://user:password@localhost/dbname
+SECRET_KEY=mysecretkey
+DEBUG=True
+```
+위와 같이 설정해야하는 환경 변수를 .env 파일로 작성합니다.
+
+### 애플리케이션에서 로드
+
+```python
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+database_url = os.getenv("DATABASE_URL")
+secret_key = os.getenv("SECRET_KEY")
+debug = os.getenv("DEBUG")
+```
+
+파이썬 애플리케이션의 시작 부분에서 load_dotenv() 함수를 사용하여 .env 파일을 로드합니다.
+그 이후 .env 파일에서 정의한 환경 변수를 사용할 수 있습니다.
+dotenv를 사용하면 환경 변수 관리가 훨씬 편리해지며, 다양한 환경에서 애플리케이션을 구성할 수 있습니다. 또한 민감한 정보나 설정을 관리하는 데 매우 유용한 도구입니다.
