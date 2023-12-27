@@ -450,3 +450,42 @@ susepnd fun main(): Unit = coroutineScope {
     - val channel = produce(capacity = Channel.RENDEZVOUS)
 - 융합 : 버퍼의 크기가 1인 채널, Channel.CONFLATED 로 설정된 채널. 새로운 원소가 이전의 원소를 대체함
     - val channel = produce(capacity = Channel.CONFLATED)
+
+---
+
+# 231227
+
+## 버전 카탈로그
+
+- 버전 카탈로그를 사용하면 멀티 모듈의 라이브러리르 관리를 효율적으로 할 수 있음.
+- gradle 폴더에 libs.versions.toml 파일을 만들고, version, plugin, libraries 섹션을 나눈다.
+
+
+**build.gradle.kts**
+```kts
+// build.gradle.kts
+dependencies {
+    implementation("androidx.core:core-ktx:1.9.0")
+}
+```
+
+**버전 카탈로그**
+
+```toml
+// libs.versions.toml
+[versions]
+ktx = "1.9.0"
+
+[libraries]
+androidx-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "ktx" }
+```
+
+```kts
+dependencies {
+   implementation(libs.androidx.ktx)
+
+}
+```
+
+### 질문
+- 과연 기존에 사용하던 buildSrc 보다 더 나은가?, 어떤 차이가 있는지 확인해봐야할듯
