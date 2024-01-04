@@ -7,4 +7,126 @@ summary: 2024년 01월의 TIL
 ---
 
 # 240104
-## 코틀린 코루틴 1장 - 
+## 코틀린 코루틴 22장 - 플로우 생명주기 함수
+
+- 플로우는 요청이 한쪽 방향으로 흐르고 요청에 의해 생성된 값이 다른 방향으로 흐르는 파이프와 같음
+- 모든 정보가 플로우로 전달되므로 값, 예외 및 다른 특정 이벤트를 감지할 수 있음
+- onEach, onStart. onCompletion, onEmpty, catch 같은 메서드를 사용하면됨
+
+### onEach
+- 플로우의 값을 하나씩 받기 위해 사용
+
+```kotlin
+suspend fun main() {
+    flowOf(1,2,3,4)
+        .onEach { print(it) }
+        .collect() // 1234
+}
+```
+
+### onStart
+- 최종 연산이 호출될때와 같이 플로우가 시작되는 경우에 호출되는 리스너를 설정함
+- 다시말해 첫번째 원소를 요청했을때 호출되는 함수이다.
+
+```kotlin
+suspend fun main() {
+    flowOf(1,2)
+        .onEach { delay(1000) }
+        .onStart { println("Before") }
+        .collect { println(it) }
+}
+// Before
+// (1초후)
+// 1
+// (1초후)
+// 2
+```
+
+- onStart에서도 원소를 내보낼수 있음
+
+```kotlin
+suspend fun main() {
+    flowOf(1,2)
+        .onEach { delay(1000) }
+        .onStart { emit(0) }
+        .collect { println(it) }
+}
+// 0
+// (1초후)
+// 1
+// (1초후)
+// 2
+```
+
+### onCompletion
+- onStart와 반대로 플로우가 완료되었을때 호출되는 리스너이다
+
+```kotlin
+suspend fun main() {
+    flowOf(1,2)
+        .onEach { delay(1000) }
+        .onCompletion { println("Completed") }
+        .collect { println(it) }
+}
+// (1초후)
+// 1
+// (1초후)
+// 2
+// Completed
+```
+
+- 보통 안드로이드에서는 프로그래스 바를 보여주기 위해 onStart를 사용하며, 가리기 위해서는 onCompletion을 사용한다.
+
+```kotlin
+fun updateNews() {
+    scope.launch {
+        newsFlow()
+            .onStart { showProgressBar() }
+            .onCompletion { hideProgressBar() }
+            .collect { view.showNews(it) }
+    }
+}
+```
+
+### onEmpty
+- onEmpty 함수는 원소를 내보내기 전에 플로우가 완료되면 실행된다.
+
+```kotlin
+suspend fun main() = coroutineScope {
+    flow<List<Int>> { delay(1000) }
+        .onEmpty { emit(emptyList()) }
+        .collect { println(it) }
+}
+// (1초 후)
+// []
+```
+
+### catch
+- 예외를 잡고 관리하는 용도로 사용됨
+
+```kotlin 
+class MyError: Throwable("My error")
+
+val flow = flow {
+    emit(1)
+    emit(2)
+    throw MyError()
+}
+
+suspend fun main(): Unit {
+    flow.onEach { println("Got $it") }
+        .catch { println("Caught $it") }
+        .collect { println("Collected $it") }
+}
+// Got 1
+// Collected 1
+// Got 2
+// Collected 2
+// Caught MyError : My error
+```
+
+### flowOn
+- 코루틴 컨텍스트를 변경할때 사용하는 함수
+
+### launchIn
+- 별도의 코루틴에서 플로우를 다시 시작하기 위한 함수
