@@ -1,0 +1,22 @@
+---
+title: 안드로이드 Cache로 인한 빌드 실패 시 대응
+date: '2024-01-22'
+tags: ['Android', 'TroubleShooting']
+draft: false
+summary: 안드로이드 Cache로 인한 빌드 실패 시 대응
+---
+
+# 안드로이드 Cache로 인한 빌드 실패시 대응
+
+- 언제 부턴가 안드로이드에서 복잡한 작업을 하거나 브랜치를 변경할때 아래와 같은 오류가 발생함
+
+```
+Unexpected combination of states REMOVED, CHANGED for file /Users/eunwoo/Desktop/finda/finda-app-android/data/account/build/intermediates/java_res/stgDebug/out/META-INF/account_stgDebug.kotlin_module
+```
+
+- 오류를 수정하기 위해 build cache 파일을 제거하고 여러가지 대응을 해보았으나 동일한 오류가 발생
+- 수동이 아니라 gradlew를 사용해서 모든 빌드에 대한 내용을 초기화 하면 해당 문제가 해결됨
+
+```
+.gradlew clean
+```
